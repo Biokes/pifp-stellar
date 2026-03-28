@@ -32,6 +32,7 @@
 //! - An address holds **at most one role** at a time; granting a new role replaces the old one.
 
 #![allow(unused)]
+#![allow(deprecated)]
 
 use soroban_sdk::{contracttype, symbol_short, Address, Env, Vec};
 

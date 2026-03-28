@@ -206,7 +206,8 @@ fn test_admin_cannot_cancel_project() {
     let donator = ctx.generate_address();
     let other_admin = ctx.generate_address();
 
-    ctx.client.grant_role(&ctx.admin, &other_admin, &crate::Role::Admin);
+    ctx.client
+        .grant_role(&ctx.admin, &other_admin, &crate::Role::Admin);
     sac.mint(&donator, &600i128);
     ctx.client
         .deposit(&project.id, &donator, &token.address, &600i128);

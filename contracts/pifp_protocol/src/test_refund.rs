@@ -172,10 +172,16 @@ fn test_refund_success_after_cancellation() {
     let token_sac = token::StellarAssetClient::new(&env, &token.address);
     token_sac.mint(&donator, &700i128);
     client.deposit(&project.id, &donator, &token.address, &600i128);
-    assert_eq!(client.get_project(&project.id).status, ProjectStatus::Active);
+    assert_eq!(
+        client.get_project(&project.id).status,
+        ProjectStatus::Active
+    );
 
     client.cancel_project(&creator, &project.id);
-    assert_eq!(client.get_project(&project.id).status, ProjectStatus::Cancelled);
+    assert_eq!(
+        client.get_project(&project.id).status,
+        ProjectStatus::Cancelled
+    );
 
     client.refund(&donator, &project.id, &token.address);
 
@@ -207,10 +213,16 @@ fn test_refund_distribution_after_cancellation_multi_donor() {
     client.deposit(&project.id, &donator_a, &token.address, &300i128);
     client.deposit(&project.id, &donator_b, &token.address, &500i128);
     assert_eq!(client.get_balance(&project.id, &token.address), 800i128);
-    assert_eq!(client.get_project(&project.id).status, ProjectStatus::Active);
+    assert_eq!(
+        client.get_project(&project.id).status,
+        ProjectStatus::Active
+    );
 
     client.cancel_project(&super_admin, &project.id);
-    assert_eq!(client.get_project(&project.id).status, ProjectStatus::Cancelled);
+    assert_eq!(
+        client.get_project(&project.id).status,
+        ProjectStatus::Cancelled
+    );
 
     client.refund(&donator_a, &project.id, &token.address);
     client.refund(&donator_b, &project.id, &token.address);
