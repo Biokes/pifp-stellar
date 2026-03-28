@@ -31,14 +31,13 @@ use soroban_sdk::{
 
 pub mod errors;
 pub mod events;
+pub mod invariants_checker;
 pub mod rbac;
 mod storage;
 mod types;
 
 #[cfg(test)]
 mod fuzz_test;
-#[cfg(test)]
-mod invariants;
 #[cfg(test)]
 mod rbac_test;
 
