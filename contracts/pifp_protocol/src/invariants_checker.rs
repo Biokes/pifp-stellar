@@ -4,7 +4,6 @@
 //! as defined in ARCHITECTURE.md. These checkers are used both in fuzz tests
 //! and can be triggered as post-execution assertions in debug builds.
 
-use crate::rbac::get_super_admin;
 use crate::types::{Project, ProjectStatus};
 use soroban_sdk::{Address, Env, Vec};
 

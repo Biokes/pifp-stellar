@@ -125,10 +125,10 @@ pub enum Error {
     RefundWindowExpired = 25,
     /// A method that requires the protocol to be initialised was called before
     /// `initialize()` had been executed on this contract instance.
-    ProtocolNotInitialized = 24,
+    ProtocolNotInitialized = 28,
 
     /// The requested release amount exceeds the project's current on-chain balance.
-    ReleaseAmountExceedsBalance = 25,
+    ReleaseAmountExceedsBalance = 29,
 
     /// The supplied IPFS CID byte string was either empty or exceeded the
     /// maximum allowed length (`MAX_CID_LEN` = 64 bytes).
