@@ -409,3 +409,18 @@ pub fn emit_fee_deducted(env: &Env, project_id: u64, token: Address, amount: i12
     };
     env.events().publish(topics, data);
 }
+
+pub fn emit_deadline_extended(
+    env: &Env,
+    project_id: u64,
+    old_deadline: u64,
+    new_deadline: u64,
+) {
+    let topics = (symbol_short!("ext_dead"), project_id);
+    let data = DeadlineExtended {
+        project_id,
+        old_deadline,
+        new_deadline,
+    };
+    env.events().publish(topics, data);
+}
