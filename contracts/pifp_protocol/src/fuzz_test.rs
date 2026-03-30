@@ -56,6 +56,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         check_all_project_invariants(&env, &project);
@@ -84,6 +86,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         check_all_project_invariants(&env, &project);
@@ -111,6 +115,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         check_all_project_invariants(&env, &project);
@@ -144,6 +150,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         let donator = Address::generate(&env);
@@ -182,6 +190,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         let sac = token::StellarAssetClient::new(&env, &token_client.address);
@@ -239,6 +249,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         let oracle = Address::generate(&env);
@@ -272,6 +284,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         let oracle = Address::generate(&env);
@@ -351,6 +365,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         let donator = Address::generate(&env);
@@ -385,6 +401,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
 
         let oracle = Address::generate(&env);
@@ -428,6 +446,8 @@ proptest! {
             &proof_hash,
             &dummy_metadata_uri(&env),
             &deadline,
+            &false,
+            &0u32,
         );
         check_all_project_invariants(&env, &project);
         assert_eq!(project.status, ProjectStatus::Funding);

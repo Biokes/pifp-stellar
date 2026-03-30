@@ -62,6 +62,8 @@ pub struct ProjectConfig {
     pub deadline: u64,
     pub is_private: bool,
     pub metadata_uri: Bytes,
+    /// Bitset of [`crate::categories::Category`] flags (OR-ed bitmasks).
+    pub categories: u32,
 }
 
 /// Mutable project state, updated on deposits and verification.
@@ -114,6 +116,8 @@ pub struct Project {
     /// Ledger timestamp after which donors can no longer refund and the
     /// creator may reclaim unclaimed funds.  Zero while non-terminal.
     pub refund_expiry: u64,
+    /// Bitset of [`crate::categories::Category`] flags (OR-ed bitmasks).
+    pub categories: u32,
 }
 
 impl Project {

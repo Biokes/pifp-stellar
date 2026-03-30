@@ -77,6 +77,8 @@ fn test_donation_count_increments_for_same_donor_different_tokens() {
         &ctx.dummy_proof(),
         &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
+        &0u32,
     );
 
     let donator = ctx.generate_address();
@@ -107,6 +109,8 @@ fn test_donation_count_complex_scenario() {
         &ctx.dummy_proof(),
         &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
+        &0u32,
     );
 
     let donator1 = ctx.generate_address();

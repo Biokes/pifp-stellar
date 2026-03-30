@@ -103,6 +103,8 @@ fn test_register_deadline_too_far_in_future_fails() {
         &ctx.dummy_proof(),
         &ctx.dummy_metadata_uri(),
         &too_far_deadline,
+        &false,
+        &0u32,
     );
 }
 

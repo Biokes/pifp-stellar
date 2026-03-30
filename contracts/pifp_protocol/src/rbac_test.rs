@@ -82,6 +82,8 @@ fn test_project_manager_can_register() {
         &ctx.dummy_proof(),
         &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
+        &0u32,
     );
     assert_eq!(project.creator, ctx.manager);
 }

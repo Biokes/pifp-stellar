@@ -69,6 +69,8 @@ fn test_register_past_deadline_fails() {
         &ctx.dummy_proof(),
         &ctx.dummy_metadata_uri(),
         &past_deadline,
+        &false,
+        &0u32,
     );
 }
 

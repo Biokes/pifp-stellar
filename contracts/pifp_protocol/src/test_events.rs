@@ -55,6 +55,8 @@ fn test_get_project_balances() {
         &ctx.dummy_proof(),
         &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
+        &0u32,
     );
 
     let donator = ctx.generate_address();
