@@ -14,6 +14,7 @@ mod indexer;
 mod middleware;
 mod profiles;
 mod metrics;
+mod profiles;
 mod rpc;
 mod webhook;
 
@@ -123,10 +124,7 @@ async fn main() -> anyhow::Result<()> {
     // ─── Metrics server ───────────────────────────────────
     let metrics_addr = format!("0.0.0.0:{}", config.metrics_port);
     info!("Metrics listening on http://{metrics_addr}/metrics");
-    let metrics_app = Router::new().route(
-        "/metrics",
-        get(|| async { metrics::gather_metrics() }),
-    );
+    let metrics_app = Router::new().route("/metrics", get(|| async { metrics::gather_metrics() }));
     let metrics_listener = tokio::net::TcpListener::bind(&metrics_addr).await?;
     tokio::spawn(async move {
         axum::serve(metrics_listener, metrics_app)
