@@ -13,6 +13,7 @@ pub struct Config {
     /// Port for the REST API server
     pub api_port: u16,
     /// Port for the Prometheus /metrics endpoint
+    /// Port for the Prometheus metrics server
     pub metrics_port: u16,
     /// How often (in seconds) to poll the RPC for new events
     pub poll_interval_secs: u64,

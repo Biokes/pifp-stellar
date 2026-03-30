@@ -46,13 +46,16 @@ fn test_get_project_balances() {
     let (token_b, sac_b) = ctx.create_token();
 
     // Grant manager and register project with two tokens
+    let metadata_uri = ctx.dummy_metadata_uri();
     let tokens = vec![&ctx.env, token_a.address.clone(), token_b.address.clone()];
     let project = ctx.client.register_project(
         &ctx.manager,
         &tokens,
         &10_000,
         &ctx.dummy_proof(),
+        &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
     );
 
     let donator = ctx.generate_address();

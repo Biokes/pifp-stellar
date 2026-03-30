@@ -68,12 +68,15 @@ fn test_donation_count_increments_for_same_donor_different_tokens() {
     let (token2, sac2) = ctx.create_token();
     let tokens =
         soroban_sdk::Vec::from_array(&ctx.env, [token1.address.clone(), token2.address.clone()]);
+    let metadata_uri = ctx.dummy_metadata_uri();
     let project = ctx.client.register_project(
         &ctx.manager,
         &tokens,
         &10_000,
         &ctx.dummy_proof(),
+        &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
     );
 
     let donator = ctx.generate_address();
@@ -96,12 +99,15 @@ fn test_donation_count_complex_scenario() {
     let (token2, sac2) = ctx.create_token();
     let tokens =
         soroban_sdk::Vec::from_array(&ctx.env, [token1.address.clone(), token2.address.clone()]);
+    let metadata_uri = ctx.dummy_metadata_uri();
     let project = ctx.client.register_project(
         &ctx.manager,
         &tokens,
         &10_000,
         &ctx.dummy_proof(),
+        &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
     );
 
     let donator1 = ctx.generate_address();

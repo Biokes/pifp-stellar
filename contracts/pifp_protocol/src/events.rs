@@ -1,13 +1,7 @@
 #![allow(deprecated)]
 
+use crate::types::ProtocolConfig;
 use soroban_sdk::{contracttype, symbol_short, Address, BytesN, Env};
-
-// ── Event Data Structs ──────────────────────────────────────────────
-//
-// Each event uses a dedicated struct so that indexers can decode every
-// field by name rather than relying on positional tuple elements.
-// Topic layout: (event_symbol, project_id) for project-scoped events,
-// (event_symbol, caller) for protocol-level events.
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -49,9 +43,63 @@ pub struct ProjectExpired {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeadlineExtended {
+    pub project_id: u64,
+    pub old_deadline: u64,
+    pub new_deadline: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProtocolConfigUpdated {
+    pub old_fee_recipient: Option<Address>,
+    pub old_fee_bps: u32,
+    pub new_fee_recipient: Address,
+    pub new_fee_bps: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeDeducted {
+    pub project_id: u64,
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhitelistAdded {
+    pub project_id: u64,
+    pub address: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WhitelistRemoved {
+    pub project_id: u64,
+    pub address: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProjectCancelled {
     pub project_id: u64,
     pub cancelled_by: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectPaused {
+    pub project_id: u64,
+    pub admin: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectUnpaused {
+    pub project_id: u64,
+    pub admin: Address,
 }
 
 #[contracttype]
@@ -62,7 +110,6 @@ pub struct FundsReleased {
     pub amount: i128,
 }
 
-/// Structured refund event data (previously emitted as a bare tuple).
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Refunded {
@@ -71,8 +118,6 @@ pub struct Refunded {
     pub amount: i128,
 }
 
-/// Event data emitted when a creator reclaims unclaimed donor funds
-/// after the refund window has expired.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExpiredFundsReclaimed {
@@ -82,7 +127,6 @@ pub struct ExpiredFundsReclaimed {
     pub amount: i128,
 }
 
-/// Event data for protocol pause / unpause.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProtocolPaused {
@@ -104,7 +148,7 @@ pub fn emit_project_created(
     token: Address,
     goal: i128,
 ) {
-    let topics = (symbol_short!("created"), project_id);
+    let topics = (symbol_short!("proj_cr"), project_id);
     let data = ProjectCreated {
         project_id,
         creator,
@@ -115,7 +159,7 @@ pub fn emit_project_created(
 }
 
 pub fn emit_project_funded(env: &Env, project_id: u64, donator: Address, amount: i128) {
-    let topics = (symbol_short!("funded"), project_id);
+    let topics = (symbol_short!("proj_fnd"), project_id);
     let data = ProjectFunded {
         project_id,
         donator,
@@ -125,13 +169,13 @@ pub fn emit_project_funded(env: &Env, project_id: u64, donator: Address, amount:
 }
 
 pub fn emit_project_active(env: &Env, project_id: u64) {
-    let topics = (symbol_short!("active"), project_id);
+    let topics = (symbol_short!("proj_act"), project_id);
     let data = ProjectActive { project_id };
     env.events().publish(topics, data);
 }
 
 pub fn emit_project_verified(env: &Env, project_id: u64, oracle: Address, proof_hash: BytesN<32>) {
-    let topics = (symbol_short!("verified"), project_id);
+    let topics = (symbol_short!("proj_ver"), project_id);
     let data = ProjectVerified {
         project_id,
         oracle,
@@ -141,7 +185,7 @@ pub fn emit_project_verified(env: &Env, project_id: u64, oracle: Address, proof_
 }
 
 pub fn emit_project_expired(env: &Env, project_id: u64, deadline: u64) {
-    let topics = (symbol_short!("expired"), project_id);
+    let topics = (symbol_short!("proj_exp"), project_id);
     let data = ProjectExpired {
         project_id,
         deadline,
@@ -150,7 +194,7 @@ pub fn emit_project_expired(env: &Env, project_id: u64, deadline: u64) {
 }
 
 pub fn emit_project_cancelled(env: &Env, project_id: u64, cancelled_by: Address) {
-    let topics = (symbol_short!("cancelled"), project_id);
+    let topics = (symbol_short!("proj_can"), project_id);
     let data = ProjectCancelled {
         project_id,
         cancelled_by,
@@ -158,22 +202,94 @@ pub fn emit_project_cancelled(env: &Env, project_id: u64, cancelled_by: Address)
     env.events().publish(topics, data);
 }
 
+pub fn emit_project_paused(env: &Env, project_id: u64, admin: Address) {
+    let topics = (symbol_short!("prj_psd"), project_id);
+    let data = ProjectPaused { project_id, admin };
+    env.events().publish(topics, data);
+}
+
+pub fn emit_project_unpaused(env: &Env, project_id: u64, admin: Address) {
+    let topics = (symbol_short!("prj_unp"), project_id);
+    let data = ProjectUnpaused { project_id, admin };
+    env.events().publish(topics, data);
+}
+
 pub fn emit_funds_released(env: &Env, project_id: u64, token: Address, amount: i128) {
-    let topics = (symbol_short!("released"), project_id, token.clone());
+    let topics = (symbol_short!("fund_rel"), project_id);
     let data = FundsReleased {
         project_id,
-        token,
+        token: token.clone(),
         amount,
     };
     env.events().publish(topics, data);
 }
 
 pub fn emit_refunded(env: &Env, project_id: u64, donator: Address, amount: i128) {
-    let topics = (symbol_short!("refunded"), project_id);
+    let topics = (symbol_short!("proj_ref"), project_id);
     let data = Refunded {
         project_id,
         donator,
         amount,
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn emit_deadline_extended(env: &Env, project_id: u64, old_deadline: u64, new_deadline: u64) {
+    let topics = (symbol_short!("ext_dead"), project_id);
+    let data = DeadlineExtended {
+        project_id,
+        old_deadline,
+        new_deadline,
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn emit_protocol_config_updated(
+    env: &Env,
+    old_config: Option<ProtocolConfig>,
+    new_config: ProtocolConfig,
+) {
+    let topics = (symbol_short!("cfg_upd"),);
+    let data = ProtocolConfigUpdated {
+        old_fee_recipient: old_config.as_ref().map(|cfg| cfg.fee_recipient.clone()),
+        old_fee_bps: old_config.map_or(0, |cfg| cfg.fee_bps),
+        new_fee_recipient: new_config.fee_recipient.clone(),
+        new_fee_bps: new_config.fee_bps,
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn emit_fee_deducted(
+    env: &Env,
+    project_id: u64,
+    token: Address,
+    amount: i128,
+    recipient: Address,
+) {
+    let topics = (symbol_short!("fee_ded"), project_id, token.clone());
+    let data = FeeDeducted {
+        project_id,
+        token,
+        amount,
+        recipient,
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn emit_whitelist_added(env: &Env, project_id: u64, address: Address) {
+    let topics = (symbol_short!("whl_add"), project_id);
+    let data = WhitelistAdded {
+        project_id,
+        address,
+    };
+    env.events().publish(topics, data);
+}
+
+pub fn emit_whitelist_removed(env: &Env, project_id: u64, address: Address) {
+    let topics = (symbol_short!("whl_rem"), project_id);
+    let data = WhitelistRemoved {
+        project_id,
+        address,
     };
     env.events().publish(topics, data);
 }
@@ -185,7 +301,7 @@ pub fn emit_expired_funds_reclaimed(
     token: Address,
     amount: i128,
 ) {
-    let topics = (symbol_short!("reclaim"), project_id, token.clone());
+    let topics = (symbol_short!("exp_recl"), project_id);
     let data = ExpiredFundsReclaimed {
         project_id,
         creator,
@@ -196,13 +312,13 @@ pub fn emit_expired_funds_reclaimed(
 }
 
 pub fn emit_protocol_paused(env: &Env, admin: Address) {
-    let topics = (symbol_short!("paused"), admin.clone());
+    let topics = (symbol_short!("prot_psd"),);
     let data = ProtocolPaused { admin };
     env.events().publish(topics, data);
 }
 
 pub fn emit_protocol_unpaused(env: &Env, admin: Address) {
-    let topics = (symbol_short!("unpaused"), admin.clone());
+    let topics = (symbol_short!("prot_unp"),);
     let data = ProtocolUnpaused { admin };
     env.events().publish(topics, data);
 }

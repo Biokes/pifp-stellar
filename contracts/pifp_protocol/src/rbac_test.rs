@@ -74,12 +74,15 @@ fn test_project_manager_can_register() {
     let ctx = TestContext::new();
     let tokens = vec![&ctx.env, ctx.generate_address()];
 
+    let metadata_uri = ctx.dummy_metadata_uri();
     let project = ctx.client.register_project(
         &ctx.manager,
         &tokens,
         &1000i128,
         &ctx.dummy_proof(),
+        &metadata_uri,
         &(ctx.env.ledger().timestamp() + 86400),
+        &false,
     );
     assert_eq!(project.creator, ctx.manager);
 }

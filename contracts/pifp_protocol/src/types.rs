@@ -28,7 +28,7 @@
 //! Backward transitions and transitions out of terminal states (`Completed`,
 //! `Expired`, `Cancelled`) are rejected by lifecycle entrypoints.
 
-use soroban_sdk::{contracttype, Address, BytesN, Vec};
+use soroban_sdk::{contracttype, Address, Bytes, BytesN, Vec};
 
 /// Current lifecycle state of a funding project.
 #[contracttype]
@@ -60,6 +60,8 @@ pub struct ProjectConfig {
     pub goal: i128,
     pub proof_hash: BytesN<32>,
     pub deadline: u64,
+    pub is_private: bool,
+    pub metadata_uri: Bytes,
 }
 
 /// Mutable project state, updated on deposits and verification.
@@ -71,6 +73,9 @@ pub struct ProjectState {
     pub status: ProjectStatus,
     /// Count of unique (donator, token) pairs that have deposited.
     pub donation_count: u32,
+    /// Emergency pause flag for this project. When true, deposits and
+    /// verification/releases are blocked until an admin unpauses it.
+    pub paused: bool,
     /// Ledger timestamp after which donors can no longer refund and the
     /// creator may reclaim unclaimed funds.  Set to `deadline + REFUND_WINDOW`
     /// when the project transitions to Expired, or `cancel_time + REFUND_WINDOW`
@@ -98,6 +103,8 @@ pub struct Project {
     pub goal: i128,
     /// Content hash (e.g. IPFS CID digest) of proof artifacts.
     pub proof_hash: soroban_sdk::BytesN<32>,
+    /// Optional CID or URI pointing to external project metadata.
+    pub metadata_uri: soroban_sdk::Bytes,
     /// Ledger timestamp by which the project must be completed.
     pub deadline: u64,
     /// Current lifecycle state.
@@ -105,6 +112,10 @@ pub struct Project {
     /// Count of unique (token, donator) pairs that have donated.
     /// Informational; incremented on each new deposit.
     pub donation_count: u32,
+    /// Is this a private project (whitelist only)?
+    pub is_private: bool,
+    /// Emergency pause flag for this project.
+    pub paused: bool,
     /// Ledger timestamp after which donors can no longer refund and the
     /// creator may reclaim unclaimed funds.  Zero while non-terminal.
     pub refund_expiry: u64,
@@ -136,4 +147,13 @@ pub struct TokenBalance {
 pub struct ProjectBalances {
     pub project_id: u64,
     pub balances: Vec<TokenBalance>,
+}
+/// Global protocol configuration managed by the SuperAdmin.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProtocolConfig {
+    /// Recipient of the platform fee.
+    pub fee_recipient: Address,
+    /// Platform fee in basis points (1 BPS = 0.01%).
+    pub fee_bps: u32,
 }

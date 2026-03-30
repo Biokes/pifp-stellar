@@ -15,6 +15,8 @@ use tracing::info;
 use crate::cache::Cache;
 use crate::db;
 use crate::events::EventRecord;
+use crate::middleware::auth::verify_profile_signature;
+use crate::profiles::{self, ProfileUpdate};
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -89,6 +91,38 @@ pub struct VoteResponse {
     pub message: String,
 }
 
+/// Signed profile upsert request.
+///
+/// The client must sign the canonical message `"pifp-profile:{address}"` with
+/// the Ed25519 private key corresponding to `address` and provide the
+/// base64-encoded signature in `signature`.
+#[derive(Deserialize)]
+pub struct ProfileRequest {
+    pub address: String,
+    pub signature: String,
+    #[serde(flatten)]
+    pub update: ProfileUpdate,
+}
+
+fn verify_profile_signature(address: &str, signature_b64: &str) -> bool {
+    let Ok(strkey) = StellarPublicKey::from_string(address) else {
+        return false;
+    };
+    let Ok(sig_bytes) = base64::engine::general_purpose::STANDARD.decode(signature_b64) else {
+        return false;
+    };
+    let Ok(sig_array): Result<&[u8; 64], _> = sig_bytes.as_slice().try_into() else {
+        return false;
+    };
+    let sig = Signature::from_bytes(sig_array);
+    let Ok(vk) = VerifyingKey::from_bytes(&strkey.0) else {
+        return false;
+    };
+    let message = format!("pifp-profile:{address}");
+    use ed25519_dalek::Verifier;
+    vk.verify(message.as_bytes(), &sig).is_ok()
+}
+
 #[derive(Deserialize)]
 pub struct TopProjectsQuery {
     pub limit: Option<u32>,
@@ -103,6 +137,16 @@ pub struct TopProjectsResponse {
 #[derive(Serialize, Deserialize)]
 pub struct ActiveProjectsCountResponse {
     pub count: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StatsResponse {
+    pub total_projects: i64,
+    pub total_tvl: String,
+    pub total_donors: i64,
+    pub completed_projects: i64,
+    pub failed_projects: i64,
+    pub success_rate: f64,
 }
 
 #[derive(Deserialize)]
@@ -293,6 +337,71 @@ pub async fn get_project_quorum(
     }
 }
 
+/// `GET /profiles/:address`
+pub async fn get_profile(
+    State(state): State<Arc<ApiState>>,
+    Path(address): Path<String>,
+) -> impl IntoResponse {
+    match profiles::get_profile(&state.pool, &address).await {
+        Ok(Some(profile)) => (StatusCode::OK, Json(serde_json::json!(profile))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!(ErrorResponse {
+                error: "Profile not found".to_string()
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!(ErrorResponse {
+                error: e.to_string()
+            })),
+        )
+            .into_response(),
+    }
+}
+
+/// `PUT /profiles/:address`
+///
+/// Upserts a profile. Requires a valid Ed25519 signature over
+/// `"pifp-profile:{address}"` from the address owner.
+pub async fn upsert_profile(
+    State(state): State<Arc<ApiState>>,
+    Path(address): Path<String>,
+    Json(payload): Json<ProfileRequest>,
+) -> impl IntoResponse {
+    if payload.address != address {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!(ErrorResponse {
+                error: "Address mismatch".to_string()
+            })),
+        )
+            .into_response();
+    }
+
+    if !verify_profile_signature(&address, &payload.signature).is_ok() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!(ErrorResponse {
+                error: "Invalid signature".to_string()
+            })),
+        )
+            .into_response();
+    }
+
+    match profiles::upsert_profile(&state.pool, &address, &payload.update).await {
+        Ok(profile) => (StatusCode::OK, Json(serde_json::json!(profile))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!(ErrorResponse {
+                error: e.to_string()
+            })),
+        )
+            .into_response(),
+    }
+}
+
 /// `GET /projects/top?limit=10`
 ///
 /// Returns the top funded projects, optionally cached in Redis.
@@ -337,6 +446,58 @@ pub async fn get_top_projects(
     }
 }
 
+/// `DELETE /profiles/:address`
+///
+/// Deletes a profile. Requires a valid Ed25519 signature over
+/// `"pifp-profile:{address}"` from the address owner.
+pub async fn delete_profile(
+    State(state): State<Arc<ApiState>>,
+    Path(address): Path<String>,
+    Json(payload): Json<ProfileRequest>,
+) -> impl IntoResponse {
+    if payload.address != address {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!(ErrorResponse {
+                error: "Address mismatch".to_string()
+            })),
+        )
+            .into_response();
+    }
+
+    if !verify_profile_signature(&address, &payload.signature).is_ok() {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!(ErrorResponse {
+                error: "Invalid signature".to_string()
+            })),
+        )
+            .into_response();
+    }
+
+    match profiles::delete_profile(&state.pool, &address).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "status": "deleted" })),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!(ErrorResponse {
+                error: "Profile not found".to_string()
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!(ErrorResponse {
+                error: e.to_string()
+            })),
+        )
+            .into_response(),
+    }
+}
+
 /// `GET /projects/active/count`
 ///
 /// Returns the current active projects count, optionally cached in Redis.
@@ -361,6 +522,39 @@ pub async fn get_active_projects_count(State(state): State<Arc<ApiState>>) -> im
                     .set_json(key, &payload, state.cache_ttl_active_projects_count_secs)
                     .await;
             }
+            (StatusCode::OK, Json(payload)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!(ErrorResponse {
+                error: e.to_string()
+            })),
+        )
+            .into_response(),
+    }
+}
+
+/// `GET /stats`
+///
+/// Returns pre-calculated global protocol statistics.
+pub async fn get_stats(State(state): State<Arc<ApiState>>) -> impl IntoResponse {
+    match db::get_global_stats(&state.pool).await {
+        Ok(stats) => {
+            let total_terminal = stats.completed_projects + stats.failed_projects;
+            let success_rate = if total_terminal > 0 {
+                stats.completed_projects as f64 / total_terminal as f64
+            } else {
+                0.0
+            };
+
+            let payload = StatsResponse {
+                total_projects: stats.total_projects,
+                total_tvl: stats.total_tvl,
+                total_donors: stats.total_donors,
+                completed_projects: stats.completed_projects,
+                failed_projects: stats.failed_projects,
+                success_rate,
+            };
             (StatusCode::OK, Json(payload)).into_response()
         }
         Err(e) => (

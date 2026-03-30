@@ -11,8 +11,15 @@ mod db;
 mod errors;
 mod events;
 mod indexer;
+mod middleware;
+mod profiles;
+mod metrics;
+mod profiles;
 mod rpc;
 mod webhook;
+
+#[cfg(test)]
+mod auth_test;
 
 use std::sync::Arc;
 
@@ -92,17 +99,38 @@ async fn main() -> anyhow::Result<()> {
             "/projects/active/count",
             get(api::get_active_projects_count),
         )
+        .route("/stats", get(api::get_stats))
         .route("/webhooks", post(api::register_webhook))
         .route("/webhooks", get(api::list_webhooks))
         .route("/admin/quorum", post(api::set_quorum_threshold))
         .route("/projects/:id/vote", post(api::submit_vote))
         .route("/projects/:id/quorum", get(api::get_project_quorum))
+        .route("/profiles/:address", get(api::get_profile))
+        .route(
+            "/profiles/:address",
+            axum::routing::put(api::upsert_profile),
+        )
+        .route(
+            "/profiles/:address",
+            axum::routing::delete(api::delete_profile),
+        )
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(api_state);
 
     let addr = format!("0.0.0.0:{}", config.api_port);
     info!("API listening on http://{addr}");
+
+    // ─── Metrics server ───────────────────────────────────
+    let metrics_addr = format!("0.0.0.0:{}", config.metrics_port);
+    info!("Metrics listening on http://{metrics_addr}/metrics");
+    let metrics_app = Router::new().route("/metrics", get(|| async { metrics::gather_metrics() }));
+    let metrics_listener = tokio::net::TcpListener::bind(&metrics_addr).await?;
+    tokio::spawn(async move {
+        axum::serve(metrics_listener, metrics_app)
+            .await
+            .expect("metrics server failed");
+    });
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
