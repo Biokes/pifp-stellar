@@ -522,6 +522,7 @@ pub async fn list_projects(
     pool: &SqlitePool,
     status: Option<String>,
     creator: Option<String>,
+    categories: Option<Vec<String>>,
     limit: i64,
     offset: i64,
 ) -> Result<Vec<ProjectRecord>> {
@@ -532,6 +533,15 @@ pub async fn list_projects(
     if creator.is_some() {
         query.push_str(" AND creator = ?");
     }
+    let category_count = categories.as_ref().map_or(0, Vec::len);
+    if category_count > 0 {
+        let placeholders = vec!["?"; category_count].join(",");
+        query.push_str(
+            " AND EXISTS (SELECT 1 FROM project_tags pt WHERE pt.project_id = projects.project_id AND pt.tag_name IN (",
+        );
+        query.push_str(&placeholders);
+        query.push_str("))");
+    }
     query.push_str(" ORDER BY created_ledger DESC LIMIT ? OFFSET ?");
 
     let mut q = sqlx::query_as::<_, ProjectRecord>(&query);
@@ -540,6 +550,11 @@ pub async fn list_projects(
     }
     if let Some(c) = creator {
         q = q.bind(c);
+    }
+    if let Some(cats) = categories {
+        for category in cats {
+            q = q.bind(category);
+        }
     }
     q = q.bind(limit).bind(offset);
 
@@ -751,6 +766,21 @@ mod tests {
             "CREATE TABLE project_stats (id INTEGER PRIMARY KEY CHECK (id = 1), total_projects INTEGER NOT NULL DEFAULT 0, total_tvl TEXT NOT NULL DEFAULT '0', total_donors INTEGER NOT NULL DEFAULT 0, completed_projects INTEGER NOT NULL DEFAULT 0, failed_projects INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')));",
         ).execute(&pool).await.unwrap();
         sqlx::query("INSERT INTO project_stats (id, total_projects, total_tvl, total_donors, completed_projects, failed_projects) VALUES (1, 0, '0', 0, 0, 0);").execute(&pool).await.unwrap();
+
+        sqlx::query(
+            "CREATE TABLE project_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL, tag_name TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')), UNIQUE(project_id, tag_name));",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query("CREATE INDEX idx_project_tags_tag_name ON project_tags (tag_name);")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("CREATE INDEX idx_project_tags_project_id ON project_tags (project_id);")
+            .execute(&pool)
+            .await
+            .unwrap();
 
         sqlx::query(
             "CREATE TABLE unique_donors (address TEXT PRIMARY KEY, created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')));",
@@ -1085,5 +1115,83 @@ mod tests {
         update_global_stats(&pool, &ev_verified).await.unwrap();
         let stats = get_global_stats(&pool).await.unwrap();
         assert_eq!(stats.completed_projects, 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_projects_filters_by_category() {
+        let pool = setup_test_db().await;
+
+        sqlx::query(
+            "INSERT INTO projects (project_id, creator, status, goal, primary_token, created_ledger) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .bind("p1")
+        .bind("alice")
+        .bind("Funding")
+        .bind("100")
+        .bind("USDC")
+        .bind(1_i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO projects (project_id, creator, status, goal, primary_token, created_ledger) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .bind("p2")
+        .bind("bob")
+        .bind("Funding")
+        .bind("200")
+        .bind("USDC")
+        .bind(2_i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "INSERT INTO projects (project_id, creator, status, goal, primary_token, created_ledger) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .bind("p3")
+        .bind("carol")
+        .bind("Funding")
+        .bind("300")
+        .bind("USDC")
+        .bind(3_i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query("INSERT INTO project_tags (project_id, tag_name) VALUES (?1, ?2)")
+            .bind("p1")
+            .bind("edu")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO project_tags (project_id, tag_name) VALUES (?1, ?2)")
+            .bind("p2")
+            .bind("health")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO project_tags (project_id, tag_name) VALUES (?1, ?2)")
+            .bind("p3")
+            .bind("climate")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let rows = list_projects(
+            &pool,
+            None,
+            None,
+            Some(vec!["edu".to_string(), "health".to_string()]),
+            20,
+            0,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].project_id, "p2");
+        assert_eq!(rows[1].project_id, "p1");
     }
 }
